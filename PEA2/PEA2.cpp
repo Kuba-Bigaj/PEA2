@@ -17,10 +17,10 @@ class App {
 	//SA
 	std::string cooling_schedules[3] = { "Geometric", "Logarithmic", "Linear" };
 	int chosen_cooling_schedule = 0;
-	double cooling_coefficient = 0.999;
-	//0 : 0.9999, 0.9999, 0.999
-	//1 : 0.001, 0.001, 0.01
-	//2 : 1e-6 , 1e-5, 5e-5
+	double cooling_coefficient = 0.9995;
+	//Geometric		: 0.9999,	0.9999,	0.999
+	//Logarithmic	: 0.001,	0.001,	0.01
+	//Linear		: 1e-6 ,	1e-5,	5e-5
 
 	//static UI helper functions
 	static int create_sub_menu(std::string top_banner, std::string options[], std::string bot_banner, int number, int def_option) // displays a submenu with options, returns the number chosen
@@ -129,34 +129,22 @@ class App {
 		}
 	}
 
-	void show_data_legacy()
-	{
-		std::cout << "Loaded file: " << loaded_file << "\n";
-		for (int i = 0; i < size; i++)
-		{
-			for (int j = 0; j < size; j++)
-			{
-				std::cout << matrix[i][j] << "\t";
-			}
-			std::cout << "\n";
-		}
-		system("pause");
-	}
-
 	void show_data()
 	{
 		std::cout << "Loaded file: " << loaded_file << "\nData size: " << size << "\n";
 		system("pause");
 	}
 
-	void show_path(int* solution)
+	std::string str_path(int* solution)
 	{
-		std::cout << solution[0];
+		std::string output;
+		output += std::to_string(solution[0]);
 		for (int i = 1; i < size; i++)
 		{
-			std::cout << " -> " << solution[i];
+			output += " -> " + std::to_string(solution[i]);
 		}
-		std::cout << "\n";
+		output += "\n";
+		return output;
 	}
 
 	void read_data_from_file(std::string filename) //TODO adapt
@@ -233,6 +221,13 @@ class App {
 		}
 	}
 
+	void save_path_to_file(int* path)
+	{
+		std::ofstream file(loaded_file + "_results.txt");
+		file << str_path(path);
+		file.close();
+	}
+
 	//algorithms
 	int path_len(int* solution)
 	{
@@ -262,7 +257,7 @@ class App {
 
 	double generate_random_double()
 	{
-		return (double)(rand() / RAND_MAX);
+		return (double)((double)rand() / (double)RAND_MAX);
 	}
 
 	void cool(double& temp)
@@ -284,6 +279,48 @@ class App {
 		}
 	}
 
+	int* generate_random_path()
+	{
+		int* solution = new int[size];
+		bool* vis = new bool[size];
+		int cur_v = 0;
+
+		for (int i = 0; i < size; i++)
+			vis[i] = false;
+
+		for (int i = 0; i < size; i++)
+		{
+			solution[i] = cur_v;
+			cur_v = rand() % size;
+			while (vis[cur_v])
+			{
+				cur_v = (cur_v + 1) % size;
+			}
+		}
+
+		return solution;
+	}
+
+	double generate_starting_temp()
+	{
+		int *sol1, *sol2;
+		double avg_diff = 0.0;
+		for (int i = 0; i < 100; i++)
+		{
+			sol1 = generate_random_path();
+			sol2 = generate_random_path();
+
+			avg_diff += path_len(sol1);
+			avg_diff -= path_len(sol2);
+
+			delete sol1;
+			delete sol2;
+		}
+		avg_diff /= 100;
+		std::cout << "diff: " << avg_diff << "\ntemp: " << avg_diff / 0.223 << "\n";
+		return avg_diff / 0.223;
+	}
+
 	int lower_bound()
 	{
 		int res = 0, min;
@@ -297,6 +334,23 @@ class App {
 				min = min < matrix[i][j] ? min : matrix[i][j];
 			}
 			res += min;
+		}
+		return res;
+	}
+
+	int higher_bound()
+	{
+		int res = 0, max;
+		for (int i = 0; i < size; i++)
+		{
+			max = INT_MIN;
+			for (int j = 0; j < size; j++)
+			{
+				if (i == j)
+					continue;
+				max = max > matrix[i][j] ? max : matrix[i][j];
+			}
+			res += max;
 		}
 		return res;
 	}
@@ -351,13 +405,19 @@ class App {
 		bool should_stop = false;
 		int* s1 = greedy();
 		int* s2 = new int[size];
-		int l1, l2, lb = lower_bound();
-		double temp = 0.3;
+		int* s3 = new int[size];
+		int l1, l2, l3 = INT_MAX, lb = lower_bound();
+		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, the good starting point is a temeprature, which gives the acceptance of 80% -> exp(-(l2-l1).temp) = 0.8. If l2 = lmax, l1 = lmin, then t=(l2-l1)/ln(5/4)
+		double temp = generate_starting_temp();
+
 		generate_neighbour(s1, s2);
-		int old = 0, cnt = 0;
+
+		int old = 0, cnt = 0; //used to stop early if a solution has been found
+
 		auto start = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed;
 
+		//TODO: pamiętanie globalnego najlepszego rozwiązania
 		while (!should_stop)
 		{
 			for (int i = 0; i < 8 * size; i++)
@@ -365,17 +425,32 @@ class App {
 				l1 = path_len(s1);
 				l2 = path_len(s2);
 
+				if (l1 < l3)
+				{
+					copy_arr(s1, s3);
+					l3 = path_len(s3);
+				}
+
 				if (l1 > l2)
 					copy_arr(s2, s1);
-				else if (generate_random_double() < exp((-(l2 - l1)) / temp))
-					copy_arr(s2, s1);
+				else
+				{
+					double rand_dob = generate_random_double();
+					double exp_wyr = exp((-(l2 - l1)) / temp);
+
+					//std::cout << "rand:" << rand_dob << "\texp:"<<exp_wyr<<"\n";
+
+					if (rand_dob < exp_wyr)
+						copy_arr(s2, s1);
+				}
 
 				generate_neighbour(s1, s2);
+
 			}
 
 			l1 = path_len(s1);
 
-			//std::cout << l1 << "\t" << temp << "\n";
+			//std::cout <<"len:"<< l1 << "\ttemp:" << temp << "\n"; //uncomment to show temperatures during execution. Warning: will slow down the algorithm
 
 			cool(temp);
 
@@ -390,11 +465,13 @@ class App {
 				should_stop = true;
 			old = l1;
 		}
-		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal solution: " << l1 << "\nTemperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nPath:\n";
-		show_path(s1);
-		system("pause");
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal solution: " << l3 << "\nTemperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nPath:\n";
+		std::cout << str_path(s3);
+		save_path_to_file(s3);
 		delete s1;
 		delete s2;
+		delete s3;
+		system("pause");
 	}
 
 	//UI functions
@@ -509,9 +586,10 @@ public:
 
 	void debug()
 	{
-		read_data_from_file("ftv55.atsp");
+		read_data_from_file("ftv170.atsp");
 		std::cout << path_len(greedy()) << "\n";
-		simulated_annealing();
+		//simulated_annealing();
+		generate_starting_temp();
 	}
 
 	void run_tests()
@@ -525,16 +603,8 @@ int main(int argc, char *argv[])
 {
 	srand(time(NULL));
 	App a;
-	if (argc > 1)
-	{
-		if (strcmp(argv[1], "-t") == 0)
-		{
-			a.run_tests();
-			return 0;
-		}
-	}
-	a.run();
-	//a.debug();
+	//a.run();
+	a.debug();
 	return 0;
 }
 

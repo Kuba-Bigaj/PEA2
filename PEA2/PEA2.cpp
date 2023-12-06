@@ -3,6 +3,7 @@
 #include <string>
 #include <conio.h>
 #include <chrono>
+#include <vector>
 
 class App {
 	//data storage
@@ -11,16 +12,20 @@ class App {
 	int size = 0;
 
 	//algorith-specific data storage
-	int run_limit = 60;				//in seconds
-	double coveted_precision = 1.1; //how bad can the acceptable solution be
+	int run_limit = 20;				//in seconds
 
 	//SA
 	std::string cooling_schedules[3] = { "Geometric", "Logarithmic", "Linear" };
 	int chosen_cooling_schedule = 0;
-	double cooling_coefficient = 0.9995;
+	double cooling_coefficient = 0.9999;
 	//Geometric		: 0.9999,	0.9999,	0.999
 	//Logarithmic	: 0.001,	0.001,	0.01
 	//Linear		: 1e-6 ,	1e-5,	5e-5
+
+	//TS
+	std::string neighbour_defs[3] = { "Swap", "Insert", "Invert" };
+	int chosen_definition = 0;
+
 
 	//static UI helper functions
 	static int create_sub_menu(std::string top_banner, std::string options[], std::string bot_banner, int number, int def_option) // displays a submenu with options, returns the number chosen
@@ -224,11 +229,17 @@ class App {
 	void save_path_to_file(int* path)
 	{
 		std::ofstream file(loaded_file + "_results.txt");
-		file << str_path(path);
+		file << size << "\n";
+		for (int i = 0; i < size; i++)
+		{
+			std::cout << path[i] << " ";
+			file << path[i] << " ";
+		}
 		file.close();
 	}
 
-	//algorithms
+	//generic algorithm helpers
+
 	int path_len(int* solution)
 	{
 		int len = 0;
@@ -239,7 +250,37 @@ class App {
 		return len;
 	}
 
-	void permutate(int* solution)
+	double generate_random_double()
+	{
+		return (double)((double)rand() / (double)RAND_MAX);
+	}
+
+	//returns a new array containing a random solution
+	int* generate_random_path()
+	{
+		int* solution = new int[size];
+		bool* vis = new bool[size];
+		int cur_v = 0;
+
+		for (int i = 0; i < size; i++)
+			vis[i] = false;
+
+		for (int i = 0; i < size; i++)
+		{
+			cur_v = rand() % size;
+			while (vis[cur_v])
+			{
+				cur_v = (cur_v + 1) % size;
+			}
+			vis[cur_v] = true;
+			solution[i] = cur_v;
+		}
+
+		return solution;
+	}
+
+	//SA algoritm helpers
+	void SA_permutate(int* solution)
 	{
 		int one = rand() % size;
 		int two = rand() % size;
@@ -249,18 +290,13 @@ class App {
 		std::swap(solution[one], solution[two]);
 	}
 
-	void generate_neighbour(int* src, int* dest)
+	void SA_generate_neighbour(int* src, int* dest)
 	{
 		copy_arr(src, dest);
-		permutate(dest);
+		SA_permutate(dest);
 	}
 
-	double generate_random_double()
-	{
-		return (double)((double)rand() / (double)RAND_MAX);
-	}
-
-	void cool(double& temp)
+	void SA_cool(double& temp)
 	{
 		switch (chosen_cooling_schedule)
 		{
@@ -279,48 +315,93 @@ class App {
 		}
 	}
 
-	int* generate_random_path()
+	double SA_generate_starting_temp() //calculates the initial temperature based on average diffrences between neighbours
 	{
-		int* solution = new int[size];
-		bool* vis = new bool[size];
-		int cur_v = 0;
-
-		for (int i = 0; i < size; i++)
-			vis[i] = false;
-
-		for (int i = 0; i < size; i++)
-		{
-			solution[i] = cur_v;
-			cur_v = rand() % size;
-			while (vis[cur_v])
-			{
-				cur_v = (cur_v + 1) % size;
-			}
-		}
-
-		return solution;
-	}
-
-	double generate_starting_temp()
-	{
-		int *sol1, *sol2;
+		int *sol1, *sol2 = new int[size];
 		double avg_diff = 0.0;
-		for (int i = 0; i < 100; i++)
+		for (int i = 0; i < 1000; i++)
 		{
 			sol1 = generate_random_path();
-			sol2 = generate_random_path();
+			copy_arr(sol1, sol2);
+			SA_permutate(sol2);
 
-			avg_diff += path_len(sol1);
-			avg_diff -= path_len(sol2);
+			//std::cout << "Len1: " << path_len(sol1) << "\nPath1: " << str_path(sol1) << "Len2: " << path_len(sol2) << "\nPath2: " << str_path(sol2) << "\n" << abs(path_len(sol1) - path_len(sol2)) << "\n\n\n";
+			avg_diff += abs(path_len(sol1) - path_len(sol2));
 
 			delete sol1;
-			delete sol2;
 		}
-		avg_diff /= 100;
-		std::cout << "diff: " << avg_diff << "\ntemp: " << avg_diff / 0.223 << "\n";
-		return avg_diff / 0.223;
+		delete sol2;
+		avg_diff /= 1000;
+		//std::cout << "diff: " << avg_diff << "\ntemp: " << avg_diff / 0.223 << "\n";
+		return avg_diff / 0.223; //e^(-(a-b)/temp)=x => temp=(a-b)/(log((x)^-1)) , x=0.99
 	}
 
+	//TS algorithm helpers
+
+	//swap a and b
+	void TS_mn_swap(int * solution, int a, int b)
+	{
+		std::swap(solution[a], solution[b]);
+	}
+
+	//insert from a into b
+	void TS_mn_insert(int * solution, int a, int b)
+	{
+		int s_val = solution[a];
+		if (a < b)
+		{
+			for (int i = a; i < b; i++)
+			{
+				solution[i] = solution[i + 1];
+			}
+			solution[b] = s_val;
+		}
+		if (a > b)
+		{
+			for (int i = a; i > b; i--)
+			{
+				solution[i] = solution[i - 1];
+			}
+			solution[b] = s_val;
+		}
+	}
+
+	//iverts the solution between a and b, inclusive
+	void TS_mn_invert(int * solution, int a, int b)
+	{
+		int min = a < b ? a : b;
+		int max = a > b ? a : b;
+
+		int* copy = new int[size];
+		copy_arr(solution, copy);
+
+		for (int i = 0; i <= max - min; i++)
+		{
+			solution[min + i] = copy[max - i];
+		}
+
+		delete copy;
+	}
+
+	void TS_generate_neighbour(int * solution, int a, int b)
+	{
+		switch (chosen_definition)
+		{
+		case 0:
+			TS_mn_swap(solution, a, b);
+			break;
+		case 1:
+			TS_mn_insert(solution, a, b);
+			break;
+		case 2:
+			TS_mn_invert(solution, a, b);
+			break;
+		default:
+			break;
+		}
+	}
+
+	//path genration algorithms
 	int lower_bound()
 	{
 		int res = 0, min;
@@ -406,29 +487,30 @@ class App {
 		int* s1 = greedy();
 		int* s2 = new int[size];
 		int* s3 = new int[size];
-		int l1, l2, l3 = INT_MAX, lb = lower_bound();
-		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, the good starting point is a temeprature, which gives the acceptance of 80% -> exp(-(l2-l1).temp) = 0.8. If l2 = lmax, l1 = lmin, then t=(l2-l1)/ln(5/4)
-		double temp = generate_starting_temp();
+		int l1, l2, l3 = INT_MAX;
+		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, a good starting point is a temeprature, which gives the acceptance of 80% => exp(-(l2-l1).temp) = 0.8
+		double temp = SA_generate_starting_temp(); //I chose an acceptace rate of 99%
 
-		generate_neighbour(s1, s2);
+		std::cout << "Starting temperature:" << temp << "\n\n";
 
-		int old = 0, cnt = 0; //used to stop early if a solution has been found
+		SA_generate_neighbour(s1, s2);
+
+		int old_sol_len = 0, old_sol_cnt = 0, disp_cnt = 0; //misc
 
 		auto start = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed;
 
-		//TODO: pamiętanie globalnego najlepszego rozwiązania
 		while (!should_stop)
 		{
-			for (int i = 0; i < 8 * size; i++)
+			for (int i = 0; i < size * 4; i++)
 			{
 				l1 = path_len(s1);
 				l2 = path_len(s2);
 
-				if (l1 < l3)
+				if (l1 < l3) //global minimum solutiom check
 				{
 					copy_arr(s1, s3);
-					l3 = path_len(s3);
+					l3 = l1;
 				}
 
 				if (l1 > l2)
@@ -438,35 +520,41 @@ class App {
 					double rand_dob = generate_random_double();
 					double exp_wyr = exp((-(l2 - l1)) / temp);
 
-					//std::cout << "rand:" << rand_dob << "\texp:"<<exp_wyr<<"\n";
+					//std::cout << "exp:\t"<<exp_wyr<<"\n";
 
 					if (rand_dob < exp_wyr)
 						copy_arr(s2, s1);
 				}
 
-				generate_neighbour(s1, s2);
+				SA_generate_neighbour(s1, s2);
 
 			}
 
 			l1 = path_len(s1);
 
-			//std::cout <<"len:"<< l1 << "\ttemp:" << temp << "\n"; //uncomment to show temperatures during execution. Warning: will slow down the algorithm
+			SA_cool(temp);
 
-			cool(temp);
-
+			/*
+			disp_cnt++;
+			if (disp_cnt == 1000)
+			{
+				std::cout << "len:" << l1 << "\ttemp:" << temp << "\n";
+				disp_cnt = 0;
+			}
+			*/
 			elapsed = std::chrono::system_clock::now() - start;
 
-			if (old == l1)
-				cnt++;
+			if (old_sol_len == l1)
+				old_sol_cnt++;
 			else
-				cnt = 0;
+				old_sol_cnt = 0;
 
-			if (elapsed.count() > run_limit || l1 < coveted_precision * lb || (temp < 0.01 && cnt == 50))
+			if (elapsed.count() > run_limit || (temp < 0.1 && old_sol_cnt == 50))
 				should_stop = true;
-			old = l1;
+			old_sol_len = l1;
 		}
-		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal solution: " << l3 << "\nTemperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nPath:\n";
-		std::cout << str_path(s3);
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 //<< "\n";
+			<< "\nFinal path:\n" << str_path(s3);
 		save_path_to_file(s3);
 		delete s1;
 		delete s2;
@@ -474,12 +562,117 @@ class App {
 		system("pause");
 	}
 
-	//UI functions
-
-	std::string str_constraints()
+	void taboo_search()
 	{
-		return "Time constraint: " + std::to_string(run_limit) + "\nQuality constraint: " + std::to_string(coveted_precision) + "\n";
+		if (size == 0)
+		{
+			std::cout << "No data loaded!\n";
+			system("pause");
+			return;
+		}
+
+		int* global_best_solution = greedy();
+		//int* global_best_solution = generate_random_path();
+		int* near_best_solution = new int[size];
+		int* current_solution = new int[size];
+		int* current_neighbour = new int[size];
+		int* cur_move = new int[2];
+
+		copy_arr(global_best_solution, current_solution);
+
+		int global_best_cost = path_len(global_best_solution);
+		int near_best_cost;
+		int neighbour_cost;
+
+		int** taboo_list = new int*[size];
+		for (int i = 0; i < size; i++)
+		{
+			taboo_list[i] = new int[size];
+			for (int j = 0; j < size; j++)
+			{
+				taboo_list[i][j] = 0;
+			}
+		}
+
+		auto start = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsed;
+
+		do {
+			near_best_cost = INT_MAX;
+			cur_move[0] = 0;
+			cur_move[1] = 0;
+
+			for (int i = 0; i < size; i++)
+			{
+				for (int j = 0; j < size; j++)
+				{
+					if (taboo_list[i][j] != 0 || i == j)
+					{
+						continue;
+					}
+
+					copy_arr(current_solution, current_neighbour);
+					TS_generate_neighbour(current_neighbour, i, j);
+
+					neighbour_cost = path_len(current_neighbour);
+
+					if (neighbour_cost < near_best_cost)
+					{
+						copy_arr(current_neighbour, near_best_solution);
+						near_best_cost = neighbour_cost;
+						cur_move[0] = i;
+						cur_move[1] = j;
+					}
+				}
+			}
+			if (near_best_cost < global_best_cost)
+			{
+				copy_arr(near_best_solution, global_best_solution);
+				global_best_cost = near_best_cost;
+				//std::cout << "IMPROVED:\t" << near_best_cost << "\n";
+			}
+
+			copy_arr(near_best_solution, current_solution);
+
+			taboo_list[cur_move[1]][cur_move[0]] = size * size / 2; //reverse move to the list
+
+			for (int i = 0; i < size; i++)
+			{
+				for (int j = 0; j < size; j++)
+				{
+					if (taboo_list[i][j] > 0)
+					{
+						taboo_list[i][j] -= 1;
+					}
+				}
+			}
+
+
+			elapsed = std::chrono::system_clock::now() - start;
+		} while (elapsed.count() < run_limit);
+
+		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost //<< "\n";
+			<< "\nFinal path:\n" << str_path(global_best_solution);
+
+		save_path_to_file(global_best_solution);
+
+		delete global_best_solution;
+		delete near_best_solution;
+		delete current_solution;
+		delete current_neighbour;
+
+		delete cur_move;
+
+		for (int i = 0; i < size; i++)
+		{
+			delete taboo_list[i];
+		}
+		delete taboo_list;
+
+		system("pause");
 	}
+
+	//UI functions
 
 	std::string str_cooling()
 	{
@@ -488,30 +681,14 @@ class App {
 
 	void set_stop_conditions()
 	{
-		std::string options[3] = { "Set a time constraint", "Set a quality cconstraint", "Back" };
 		int time_con;
-		double qual_con;
-		switch (create_sub_menu("Constraints\n", options, str_constraints(), 3, 0))
-		{
-		case 0:
-			std::cout << "Enter a new time constraint (in seconds): ";
-			std::cin >> time_con;
-			if (test_input_validity("ERROR - not an integer!"))
-				run_limit = time_con;
-			break;
-		case 1:
-			std::cout << "Enter a new quality constraint (how much can the result be worse than lower bound): ";
-			std::cin >> qual_con;
-			if (test_input_validity("ERROR - not a double!"))
-				coveted_precision = qual_con;
-			break;
-		case 2:
-			return;
-		default:
-			return;
-		}
+		std::cout << "Enter a new time constraint (in seconds): ";
+		std::cin >> time_con;
+		if (test_input_validity("ERROR - not an integer!"))
+			run_limit = time_con;
+
 		system("cls");
-		std::cout << str_constraints();
+		std::cout << "Time constraint: " << run_limit << " seconds\n";
 		system("pause");
 	}
 
@@ -543,18 +720,67 @@ class App {
 		system("pause");
 	}
 
+	void set_neighbourhood()
+	{
+		chosen_definition = create_sub_menu("Choose neighbourhood definition\n", neighbour_defs, "", 3, 0);
+
+		system("cls");
+		std::cout << "Current neighbourhood definition: " << neighbour_defs[chosen_definition] << "\n";
+		system("pause");
+
+	}
+
+	void read_path_from_file()
+	{
+		if (size == 0)
+		{
+			std::cout << "No data loaded!\n";
+			system("pause");
+			return;
+		}
+
+		std::string filename;
+		std::cout << "Enter filename:\n";
+		std::cin >> filename;
+		if (!test_input_validity("Unsupported filename!\n"))
+			return;
+
+		std::ifstream file(filename);
+		if (!file.is_open())
+		{
+			std::cout << "File open error!\n";
+			system("pause");
+			return;
+		}
+
+		int s;
+		file >> s;
+
+		int* path = new int[size];
+
+		for (int i = 0; i < size; i++)
+		{
+			file >> path[i];
+		}
+		file.close();
+
+		std::cout << "Read path has a length of " << path_len(path) << "\n";
+
+		delete path;
+		system("pause");
+	}
 
 public:
 	void run()
 	{
 		std::string title = "MAIN MENU\n";
 		std::string credits = "Kuba Bigaj 2023\n";
-		std::string options[7] = { "Load data", "Show current data","Set stop conditions", "Simulated annealing", "[SA] Set cooling schedule","[SA] Set cooling coefficient", "Exit" };
+		std::string options[10] = { "Load data", "Show current data","Set stop conditions", "Simulated annealing", "[SA] Set cooling schedule","[SA] Set cooling coefficient", "Taboo Search", "[TS] Set neighbourhood definition", "Read path from text file",  "Exit" };
 		int chosen_option = 0;
 
 		while (true)
 		{
-			chosen_option = create_sub_menu(title, options, credits, 7, chosen_option);
+			chosen_option = create_sub_menu(title, options, credits, 10, chosen_option);
 
 			switch (chosen_option)
 			{
@@ -577,6 +803,15 @@ public:
 				set_cooling_coefficient();
 				break;
 			case 6:
+				taboo_search();
+				break;
+			case 7:
+				set_neighbourhood();
+				break;
+			case 8:
+				read_path_from_file();
+				break;
+			case 9:
 				return;
 			default:
 				break;
@@ -586,10 +821,8 @@ public:
 
 	void debug()
 	{
-		read_data_from_file("ftv170.atsp");
-		std::cout << path_len(greedy()) << "\n";
-		//simulated_annealing();
-		generate_starting_temp();
+		read_data_from_file("ftv55.atsp");
+		taboo_search();
 	}
 
 	void run_tests()
@@ -603,9 +836,7 @@ int main(int argc, char *argv[])
 {
 	srand(time(NULL));
 	App a;
-	//a.run();
-	a.debug();
+	a.run();
+	//a.debug();
 	return 0;
 }
-
-//TODO: write and read and calculate path from file

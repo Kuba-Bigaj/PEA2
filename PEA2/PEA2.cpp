@@ -232,7 +232,6 @@ class App {
 		file << size << "\n";
 		for (int i = 0; i < size; i++)
 		{
-			std::cout << path[i] << " ";
 			file << path[i] << " ";
 		}
 		file.close();
@@ -247,6 +246,7 @@ class App {
 		{
 			len += matrix[solution[i - 1]][solution[i]];
 		}
+		len += matrix[solution[size - 1]][solution[0]];
 		return len;
 	}
 
@@ -280,7 +280,7 @@ class App {
 	}
 
 	//SA algoritm helpers
-	void SA_permutate(int* solution)
+	void random_swap(int* solution)
 	{
 		int one = rand() % size;
 		int two = rand() % size;
@@ -293,7 +293,7 @@ class App {
 	void SA_generate_neighbour(int* src, int* dest)
 	{
 		copy_arr(src, dest);
-		SA_permutate(dest);
+		random_swap(dest);
 	}
 
 	void SA_cool(double& temp)
@@ -323,7 +323,7 @@ class App {
 		{
 			sol1 = generate_random_path();
 			copy_arr(sol1, sol2);
-			SA_permutate(sol2);
+			random_swap(sol2);
 
 			//std::cout << "Len1: " << path_len(sol1) << "\nPath1: " << str_path(sol1) << "Len2: " << path_len(sol2) << "\nPath2: " << str_path(sol2) << "\n" << abs(path_len(sol1) - path_len(sol2)) << "\n\n\n";
 			avg_diff += abs(path_len(sol1) - path_len(sol2));
@@ -511,6 +511,7 @@ class App {
 				{
 					copy_arr(s1, s3);
 					l3 = l1;
+					std::cout << "IMPROVED: "<<elapsed.count() <<"\n";
 				}
 
 				if (l1 > l2)
@@ -554,12 +555,11 @@ class App {
 			old_sol_len = l1;
 		}
 		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 //<< "\n";
-			<< "\nFinal path:\n" << str_path(s3);
+			<< "\nFinal path:\n" << str_path(s3) << "\n";
 		save_path_to_file(s3);
 		delete s1;
 		delete s2;
 		delete s3;
-		system("pause");
 	}
 
 	void taboo_search()
@@ -584,6 +584,8 @@ class App {
 		int near_best_cost;
 		int neighbour_cost;
 
+		int it_counter = 0;
+
 		int** taboo_list = new int*[size];
 		for (int i = 0; i < size; i++)
 		{
@@ -598,17 +600,36 @@ class App {
 		std::chrono::duration<double> elapsed;
 
 		do {
+			it_counter++;
+			if (it_counter == 1000)
+			{
+				for (int i = 0; i < 10; i++)
+					random_swap(current_solution);
+				continue;
+			}
+
 			near_best_cost = INT_MAX;
 			cur_move[0] = 0;
 			cur_move[1] = 0;
+
+
 
 			for (int i = 0; i < size; i++)
 			{
 				for (int j = 0; j < size; j++)
 				{
-					if (taboo_list[i][j] != 0 || i == j)
+					if (i == j)
 					{
 						continue;
+					}
+
+
+					if (taboo_list[i][j] != 0)
+					{
+						if (generate_random_double() > 1.0 / taboo_list[i][j])
+						{
+							continue;
+						}
 					}
 
 					copy_arr(current_solution, current_neighbour);
@@ -652,7 +673,7 @@ class App {
 		} while (elapsed.count() < run_limit);
 
 		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost //<< "\n";
-			<< "\nFinal path:\n" << str_path(global_best_solution);
+			<< "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
 		save_path_to_file(global_best_solution);
 
@@ -668,8 +689,6 @@ class App {
 			delete taboo_list[i];
 		}
 		delete taboo_list;
-
-		system("pause");
 	}
 
 	//UI functions
@@ -756,6 +775,14 @@ class App {
 		int s;
 		file >> s;
 
+		if (s != size)
+		{
+			std::cout << "Size mismatch error!\n";
+			file.close();
+			system("pause");
+			return;
+		}
+
 		int* path = new int[size];
 
 		for (int i = 0; i < size; i++)
@@ -795,6 +822,7 @@ public:
 				break;
 			case 3:
 				simulated_annealing();
+				system("pause");
 				break;
 			case 4:
 				set_cooling_schedule();
@@ -804,6 +832,7 @@ public:
 				break;
 			case 6:
 				taboo_search();
+				system("pause");
 				break;
 			case 7:
 				set_neighbourhood();
@@ -822,12 +851,25 @@ public:
 	void debug()
 	{
 		read_data_from_file("ftv55.atsp");
-		taboo_search();
+
+		run_limit = 120;
 	}
 
 	void run_tests()
 	{
-
+		read_data_from_file("ftv55.atsp");
+		//170: 240 / cooling_coefficient = 0.999985;
+		//55: 120 / cooling_coefficient = 0.999996;
+		run_limit = 120;
+		cooling_coefficient = 0.999996;
+		for (int i = 0; i < 10; i++)
+		{
+			simulated_annealing();
+		}
+		/*for (int i = 0; i < 10; i++)
+		{
+			taboo_search();
+		}*/
 	}
 };
 
@@ -836,7 +878,15 @@ int main(int argc, char *argv[])
 {
 	srand(time(NULL));
 	App a;
-	a.run();
-	//a.debug();
+	if (argc > 1)
+	{
+		if (strcmp(argv[1], "-t") == 0)
+		{
+			a.run_tests();
+			return 0;
+		}
+	}
+	//a.run();
+	a.debug();
 	return 0;
 }

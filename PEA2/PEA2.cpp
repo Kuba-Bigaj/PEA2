@@ -11,6 +11,7 @@ class App {
 	int** matrix = nullptr;
 	int size = 0;
 
+	int save_counter = 0;
 	//algorith-specific data storage
 	int run_limit = 20;				//in seconds
 
@@ -228,7 +229,8 @@ class App {
 
 	void save_path_to_file(int* path)
 	{
-		std::ofstream file(loaded_file + "_results.txt");
+		std::ofstream file(loaded_file +"_"+std::to_string(save_counter)+ "_results.txt");
+		save_counter++;
 		file << size << "\n";
 		for (int i = 0; i < size; i++)
 		{
@@ -537,7 +539,7 @@ class App {
 
 			/*
 			disp_cnt++;
-			if (disp_cnt == 1000)
+			if (disp_cnt == 10000)
 			{
 				std::cout << "len:" << l1 << "\ttemp:" << temp << "\n";
 				disp_cnt = 0;
@@ -850,27 +852,28 @@ public:
 
 	void debug()
 	{
-		read_data_from_file("ftv170.atsp");
+		read_data_from_file("ftv55.atsp");
 
-		run_limit = 240;
-		chosen_cooling_schedule = 1;
-		cooling_coefficient = 0.00002;
+		//run_limit = 120;
+		//chosen_cooling_schedule = 1;
+		//cooling_coefficient = 0.000004;
 
 		simulated_annealing();
+		simulated_annealing();
+		simulated_annealing();
+
 
 	}
 
 	void run_tests()
 	{
-		read_data_from_file("ftv170.atsp");
-		//170: 240 / cooling_coefficient = 0.999985;
-		//170: 240 / log / 0.00002
-
-		//55: 120 / cooling_coefficient = 0.999996;
-		run_limit = 240;
-		chosen_cooling_schedule = 1;
-
-		cooling_coefficient = 0.00002;
+		read_data_from_file("ftv55.atsp");
+		//170: 240 / geo / 0.999985
+		//55 / 120 / geo / 0.999996
+		//55 / 240 / log / 0.000004
+		run_limit = 120;
+		chosen_cooling_schedule = 0;
+		cooling_coefficient = 0.999996;
 		for (int i = 0; i < 10; i++)
 		{
 			simulated_annealing();
@@ -895,7 +898,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	//a.run();
-	a.debug();
+	a.run();
+	//a.debug();
 	return 0;
 }

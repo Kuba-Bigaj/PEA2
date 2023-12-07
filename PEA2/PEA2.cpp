@@ -476,13 +476,13 @@ class App {
 		return solution;
 	}
 
-	void simulated_annealing()
+	int* simulated_annealing()
 	{
 		if (size == 0)
 		{
 			std::cout << "No data loaded!\n";
 			system("pause");
-			return;
+			return nullptr;
 		}
 
 		bool should_stop = false;
@@ -490,7 +490,7 @@ class App {
 		int* s2 = new int[size];
 		int* s3 = new int[size];
 		int l1, l2, l3 = INT_MAX;
-		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, a good starting point is a temeprature, which gives the acceptance of 80% => exp(-(l2-l1).temp) = 0.8
+		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, a good starting point is a temperature, which gives the acceptance of 80% => exp(-(l2-l1).temp) = 0.8
 		double temp = SA_generate_starting_temp(); //I chose an acceptace rate of 99%
 
 		std::cout << "Starting temperature:" << temp << "\n\n";
@@ -500,7 +500,7 @@ class App {
 		int old_sol_len = 0, old_sol_cnt = 0, disp_cnt = 0; //misc
 
 		auto start = std::chrono::system_clock::now();
-		std::chrono::duration<double> elapsed;
+		std::chrono::duration<double> elapsed, last_change;
 
 		while (!should_stop)
 		{
@@ -513,7 +513,7 @@ class App {
 				{
 					copy_arr(s1, s3);
 					l3 = l1;
-					std::cout << "IMPROVED: " << elapsed.count() << "\n";
+					last_change = elapsed;
 				}
 
 				if (l1 > l2)
@@ -556,21 +556,21 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 //<< "\n";
+		std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 //<< "\n";
 			<< "\nFinal path:\n" << str_path(s3) << "\n";
-		save_path_to_file(s3);
+		//save_path_to_file(s3);
 		delete s1;
 		delete s2;
-		delete s3;
+		return s3;
 	}
 
-	void taboo_search()
+	int* taboo_search()
 	{
 		if (size == 0)
 		{
 			std::cout << "No data loaded!\n";
 			system("pause");
-			return;
+			return nullptr;
 		}
 
 		int* global_best_solution = greedy();
@@ -677,9 +677,8 @@ class App {
 		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost //<< "\n";
 			<< "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
-		save_path_to_file(global_best_solution);
+		//save_path_to_file(global_best_solution);
 
-		delete global_best_solution;
 		delete near_best_solution;
 		delete current_solution;
 		delete current_neighbour;
@@ -691,6 +690,8 @@ class App {
 			delete taboo_list[i];
 		}
 		delete taboo_list;
+
+		return global_best_solution;
 	}
 
 	//UI functions
@@ -823,7 +824,7 @@ public:
 				set_stop_conditions();
 				break;
 			case 3:
-				simulated_annealing();
+				delete simulated_annealing();
 				system("pause");
 				break;
 			case 4:
@@ -833,7 +834,7 @@ public:
 				set_cooling_coefficient();
 				break;
 			case 6:
-				taboo_search();
+				delete taboo_search();
 				system("pause");
 				break;
 			case 7:
@@ -865,19 +866,33 @@ public:
 
 	void run_tests()
 	{
-		read_data_from_file("ftv170.atsp");
-		//170: 240 / cooling_coefficient = 0.999985;
-		//170: 240 / log / 0.00002
-
-		//55: 120 / cooling_coefficient = 0.999996;
-		run_limit = 240;
-		chosen_cooling_schedule = 1;
-
-		cooling_coefficient = 0.00002;
+		//55 / 120 / geo / 0.999996
+		//55 / 120 / log / 0.000004
+		//55 / 120 / lin / 0.00025
+		//170/ 240 / geo / 0.999985
+		read_data_from_file("ftv55.atsp");
+		run_limit = 120;
+		chosen_cooling_schedule = 2;
+		cooling_coefficient = 0.00025;
+		
+		int min_l = INT_MAX;
+		int* sol, *min_p = new int[size];
 		for (int i = 0; i < 10; i++)
 		{
-			simulated_annealing();
+			sol = simulated_annealing();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+			}
+			delete sol;
 		}
+
+		save_path_to_file(min_p);
+		/*for (int i = 0; i < 10; i++)
+		{
+			taboo_search();
+		}*/
 	}
 };
 
@@ -894,7 +909,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	a.run();
-	//a.debug();
+	//a.run();
+	a.debug();
 	return 0;
 }

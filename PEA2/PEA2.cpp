@@ -229,7 +229,7 @@ class App {
 
 	void save_path_to_file(int* path)
 	{
-		std::ofstream file(loaded_file +"_"+std::to_string(save_counter)+ "_results.txt");
+		std::ofstream file(loaded_file + "_" + std::to_string(save_counter) + "_results.txt");
 		save_counter++;
 		file << size << "\n";
 		for (int i = 0; i < size; i++)
@@ -513,7 +513,7 @@ class App {
 				{
 					copy_arr(s1, s3);
 					l3 = l1;
-					std::cout << "IMPROVED: "<<elapsed.count() <<"\n";
+					std::cout << "IMPROVED: " << elapsed.count() << "\n";
 				}
 
 				if (l1 > l2)
@@ -852,14 +852,12 @@ public:
 
 	void debug()
 	{
-		read_data_from_file("ftv55.atsp");
+		read_data_from_file("ftv170.atsp");
 
-		//run_limit = 120;
-		//chosen_cooling_schedule = 1;
-		//cooling_coefficient = 0.000004;
-
-		simulated_annealing();
-		simulated_annealing();
+		run_limit = 240;
+		chosen_cooling_schedule = 2;
+		cooling_coefficient = 0.00025;
+		
 		simulated_annealing();
 
 
@@ -867,21 +865,19 @@ public:
 
 	void run_tests()
 	{
-		read_data_from_file("ftv55.atsp");
-		//170: 240 / geo / 0.999985
-		//55 / 120 / geo / 0.999996
-		//55 / 240 / log / 0.000004
-		run_limit = 120;
-		chosen_cooling_schedule = 0;
-		cooling_coefficient = 0.999996;
+		read_data_from_file("ftv170.atsp");
+		//170: 240 / cooling_coefficient = 0.999985;
+		//170: 240 / log / 0.00002
+
+		//55: 120 / cooling_coefficient = 0.999996;
+		run_limit = 240;
+		chosen_cooling_schedule = 1;
+
+		cooling_coefficient = 0.00002;
 		for (int i = 0; i < 10; i++)
 		{
 			simulated_annealing();
 		}
-		/*for (int i = 0; i < 10; i++)
-		{
-			taboo_search();
-		}*/
 	}
 };
 

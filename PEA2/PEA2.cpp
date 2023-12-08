@@ -6,6 +6,8 @@
 #include <vector>
 
 class App {
+	std::chrono::duration<double> value;
+
 	//data storage
 	std::string loaded_file = "None";
 	int** matrix = nullptr;
@@ -13,7 +15,7 @@ class App {
 
 	int save_counter = 0;
 	//algorith-specific data storage
-	int run_limit = 20;				//in seconds
+	int run_limit = 5;				//in seconds
 
 	//SA
 	std::string cooling_schedules[3] = { "Geometric", "Logarithmic", "Linear" };
@@ -556,9 +558,10 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		//std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
-		//save_path_to_file(s3);
-		std::cout << "Final path length : " << l3 << "\nLast change : " << last_change.count() << "s\n";
+		std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
+		save_path_to_file(s3);
+		
+		//std::cout << "Time: "<<elapsed.count()<<"\nLast change : " << last_change.count() << "s\nFinal path length: " << l3 << "\n";
 		delete s1;
 		delete s2;
 		return s3;
@@ -600,6 +603,7 @@ class App {
 
 		auto start = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed;
+		std::chrono::duration<double> last_change;
 
 		do {
 			it_counter++;
@@ -652,7 +656,7 @@ class App {
 			{
 				copy_arr(near_best_solution, global_best_solution);
 				global_best_cost = near_best_cost;
-				//std::cout << "IMPROVED:\t" << near_best_cost << "\n";
+				last_change = elapsed;
 			}
 
 			copy_arr(near_best_solution, current_solution);
@@ -674,11 +678,10 @@ class App {
 			elapsed = std::chrono::system_clock::now() - start;
 		} while (elapsed.count() < run_limit);
 
-		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost //<< "\n";
-			<< "\nFinal path:\n" << str_path(global_best_solution) << "\n";
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nLast change: " << last_change.count() << "\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
-		//save_path_to_file(global_best_solution);
-
+		save_path_to_file(global_best_solution);
+		//std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\nFinal change: " << last_change.count() << "s\n";
 		delete near_best_solution;
 		delete current_solution;
 		delete current_neighbour;
@@ -691,6 +694,7 @@ class App {
 		}
 		delete taboo_list;
 
+		value = last_change;
 		return global_best_solution;
 	}
 
@@ -853,12 +857,12 @@ public:
 
 	void debug()
 	{
-		read_data_from_file("ftv170.atsp");
+		read_data_from_file("rbg358.atsp");
 
-		run_limit = 240;
+		run_limit = 120;
+
 		chosen_cooling_schedule = 2;
-		cooling_coefficient = 0.0013;
-
+		cooling_coefficient = 0.0015;
 		simulated_annealing();
 
 
@@ -866,30 +870,166 @@ public:
 
 	void run_tests()
 	{
-		//55 / 120 / geo / 0.999996
-		//55 / 120 / log / 0.000004
-		//55 / 120 / lin / 0.00025
-		//170/ 240 / geo / 0.999985
-		read_data_from_file("ftv170.atsp");
-		run_limit = 240;
-		chosen_cooling_schedule = 2;
-		cooling_coefficient = 0.0013;
-
 		int min_l = INT_MAX;
 		int* sol, *min_p = new int[size];
+		double min_v = 1e6; //large value
+
+		std::cout << "Go\n";
+		read_data_from_file("ftv55.atsp");
+		run_limit = 20;
+
+		chosen_definition = 0;
+
 		for (int i = 0; i < 10; i++)
 		{
-			sol = simulated_annealing();
+			std::cout << i << " ";
+			sol = taboo_search();
 			if (min_l > path_len(sol))
 			{
 				min_l = path_len(sol);
 				copy_arr(sol, min_p);
+				min_v = value.count();
 			}
 			delete sol;
 		}
-
 		save_path_to_file(min_p);
+		std::cout << path_len(min_p)<<" "<<min_v<<"\n";
+
+		chosen_definition = 1;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		chosen_definition = 2;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		read_data_from_file("ftv170.atsp");
+		run_limit = 20;
+
+		chosen_definition = 0;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		chosen_definition = 1;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		chosen_definition = 2;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+		read_data_from_file("rbg358.atsp");
+		run_limit = 20;
+
+		chosen_definition = 0;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		chosen_definition = 1;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+		chosen_definition = 2;
+
+		for (int i = 0; i < 10; i++)
+		{
+			sol = taboo_search();
+			if (min_l > path_len(sol))
+			{
+				min_l = path_len(sol);
+				copy_arr(sol, min_p);
+				min_v = value.count();
+			}
+			delete sol;
+		}
+		save_path_to_file(min_p);
+		std::cout << path_len(min_p) << " " << min_v << "\n";
+
 	}
+
 };
 
 
@@ -905,7 +1045,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	//a.run();
-	a.debug();
+	a.run();
+	//a.debug();
 	return 0;
 }

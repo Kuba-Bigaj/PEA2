@@ -495,7 +495,7 @@ class App {
 		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, a good starting point is a temperature, which gives the acceptance of 80% => exp(-(l2-l1).temp) = 0.8
 		double temp = SA_generate_starting_temp(); //I chose an acceptace rate of 99%
 
-		//std::cout << "Starting temperature:" << temp << "\n\n";
+		std::cout << "Starting temperature:" << temp << "\n\n";
 
 		SA_generate_neighbour(s1, s2);
 
@@ -558,10 +558,10 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		/*std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
-		//save_path_to_file(s3);
-		*/
-		std::cout << "Time: "<<elapsed.count()<<"\nLast change : " << last_change.count() << "s\nFinal path length: " << l3 << "\n";
+		std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
+		save_path_to_file(s3);
+		
+		//std::cout << "Time: "<<elapsed.count()<<"\nLast change : " << last_change.count() << "s\nFinal path length: " << l3 << "\n";
 		delete s1;
 		delete s2;
 		return s3;
@@ -678,10 +678,10 @@ class App {
 			elapsed = std::chrono::system_clock::now() - start;
 		} while (elapsed.count() < run_limit);
 
-		//std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nLast change: " << last_change.count() << "\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
 		save_path_to_file(global_best_solution);
-		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\nFinal change: " << last_change.count() << "s\n";
+		//std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\nFinal change: " << last_change.count() << "s\n";
 		delete near_best_solution;
 		delete current_solution;
 		delete current_neighbour;

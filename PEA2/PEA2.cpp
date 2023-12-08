@@ -539,7 +539,7 @@ class App {
 
 			/*
 			disp_cnt++;
-			if (disp_cnt == 10000)
+			if (disp_cnt == 1000)
 			{
 				std::cout << "len:" << l1 << "\ttemp:" << temp << "\n";
 				disp_cnt = 0;
@@ -556,9 +556,9 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 //<< "\n";
-			<< "\nFinal path:\n" << str_path(s3) << "\n";
+		//std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
 		//save_path_to_file(s3);
+		std::cout << "Final path length : " << l3 << "\nLast change : " << last_change.count() << "s\n";
 		delete s1;
 		delete s2;
 		return s3;
@@ -857,8 +857,8 @@ public:
 
 		run_limit = 240;
 		chosen_cooling_schedule = 2;
-		cooling_coefficient = 0.00025;
-		
+		cooling_coefficient = 0.0013;
+
 		simulated_annealing();
 
 
@@ -870,11 +870,11 @@ public:
 		//55 / 120 / log / 0.000004
 		//55 / 120 / lin / 0.00025
 		//170/ 240 / geo / 0.999985
-		read_data_from_file("ftv55.atsp");
-		run_limit = 120;
+		read_data_from_file("ftv170.atsp");
+		run_limit = 240;
 		chosen_cooling_schedule = 2;
-		cooling_coefficient = 0.00025;
-		
+		cooling_coefficient = 0.0013;
+
 		int min_l = INT_MAX;
 		int* sol, *min_p = new int[size];
 		for (int i = 0; i < 10; i++)
@@ -889,10 +889,6 @@ public:
 		}
 
 		save_path_to_file(min_p);
-		/*for (int i = 0; i < 10; i++)
-		{
-			taboo_search();
-		}*/
 	}
 };
 

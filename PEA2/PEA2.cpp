@@ -6,7 +6,9 @@
 #include <vector>
 
 class App {
-	std::chrono::duration<double> value;
+	std::vector<double> change_times;
+	std::vector<int> change_vals;
+
 
 	//data storage
 	std::string loaded_file = "None";
@@ -493,16 +495,16 @@ class App {
 		int* s3 = new int[size];
 		int l1, l2, l3 = INT_MAX;
 		//https://courses.physics.illinois.edu/phys466/sp2013/projects/2001/team1/cooling.htm Basically, a good starting point is a temperature, which gives the acceptance of 80% => exp(-(l2-l1).temp) = 0.8
-		double temp = SA_generate_starting_temp(); //I chose an acceptace rate of 99%
+		double temp = SA_generate_starting_temp(); //I chose an acceptace rate of 80%
 
-		std::cout << "Starting temperature:" << temp << "\n\n";
+		//std::cout << "Starting temperature:" << temp << "\n\n";
 
 		SA_generate_neighbour(s1, s2);
 
 		int old_sol_len = 0, old_sol_cnt = 0, disp_cnt = 0; //misc
 
 		auto start = std::chrono::system_clock::now();
-		std::chrono::duration<double> elapsed, last_change;
+		std::chrono::duration<double> elapsed;
 
 		while (!should_stop)
 		{
@@ -515,7 +517,8 @@ class App {
 				{
 					copy_arr(s1, s3);
 					l3 = l1;
-					last_change = elapsed;
+					change_times.push_back(elapsed.count());
+					change_vals.push_back(l1);
 				}
 
 				if (l1 > l2)
@@ -539,14 +542,15 @@ class App {
 
 			SA_cool(temp);
 
-			/*
-			disp_cnt++;
+
+			/*disp_cnt++;
 			if (disp_cnt == 1000)
 			{
 				std::cout << "len:" << l1 << "\ttemp:" << temp << "\n";
 				disp_cnt = 0;
 			}
 			*/
+
 			elapsed = std::chrono::system_clock::now() - start;
 
 			if (old_sol_len == l1)
@@ -558,10 +562,10 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		std::cout << "Time elapsed: " << elapsed.count() <<"s\nLast change: "<< last_change.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
-		save_path_to_file(s3);
-		
-		//std::cout << "Time: "<<elapsed.count()<<"\nLast change : " << last_change.count() << "s\nFinal path length: " << l3 << "\n";
+		//std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
+		//save_path_to_file(s3);
+
+		std::cout << "Time: "<<elapsed.count()<<"s\nFinal path length: " << l3 << "\n\n";
 		delete s1;
 		delete s2;
 		return s3;
@@ -590,6 +594,7 @@ class App {
 		int neighbour_cost;
 
 		int it_counter = 0;
+		int min_reached = 0;
 
 		int** taboo_list = new int*[size];
 		for (int i = 0; i < size; i++)
@@ -603,15 +608,15 @@ class App {
 
 		auto start = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed;
-		std::chrono::duration<double> last_change;
 
 		do {
 			it_counter++;
-			if (it_counter == 1000)
+			if (it_counter > 1000 * size && min_reached == 100)
 			{
-				for (int i = 0; i < 10; i++)
+				for (int i = 0; i < size; i++)
 					random_swap(current_solution);
-				it_counter -= 1000;
+				it_counter -= 1000 * size;
+				min_reached -= 100;
 				continue;
 			}
 
@@ -644,16 +649,24 @@ class App {
 					}
 				}
 			}
+
+			elapsed = std::chrono::system_clock::now() - start;
+
 			if (near_best_cost < global_best_cost)
 			{
 				copy_arr(near_best_solution, global_best_solution);
 				global_best_cost = near_best_cost;
-				last_change = elapsed;
+				change_times.push_back(elapsed.count());
+				change_vals.push_back(global_best_cost);
 			}
+
+			if (near_best_cost >= path_len(current_solution))
+				min_reached++;
+
 
 			copy_arr(near_best_solution, current_solution);
 
-			taboo_list[cur_move[1]][cur_move[0]] = size * size / 2; //reverse move to the list
+			taboo_list[cur_move[1]][cur_move[0]] = size * size / 4; //reverse move to the list
 
 			for (int i = 0; i < size; i++)
 			{
@@ -667,13 +680,12 @@ class App {
 			}
 
 
-			elapsed = std::chrono::system_clock::now() - start;
 		} while (elapsed.count() < run_limit);
 
-		std::cout << "Time elapsed: " << elapsed.count() << "s\nLast change: " << last_change.count() << "\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
+		//std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
-		save_path_to_file(global_best_solution);
-		//std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\nFinal change: " << last_change.count() << "s\n";
+		//save_path_to_file(global_best_solution);
+		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\n\n";
 		delete near_best_solution;
 		delete current_solution;
 		delete current_neighbour;
@@ -685,8 +697,6 @@ class App {
 			delete taboo_list[i];
 		}
 		delete taboo_list;
-
-		value = last_change;
 		return global_best_solution;
 	}
 
@@ -851,174 +861,245 @@ public:
 	{
 		read_data_from_file("rbg358.atsp");
 
-		run_limit = 120;
+		run_limit = 180;
+		std::cout << path_len(greedy()) << "\n";
 
-		chosen_cooling_schedule = 2;
-		cooling_coefficient = 0.0015;
+		chosen_cooling_schedule = 0;
+		cooling_coefficient = 0.99994;
+		//cooling_coefficient = 0.000666;
+
 		simulated_annealing();
-
-
 	}
 
 	void run_tests()
 	{
-		int min_l = INT_MAX;
-		int* sol, *min_p = new int[size];
-		double min_v = 1e6; //large value
 
-		std::cout << "Go\n";
+		/*
+			cooling coefficients:
+			55 / 60 / geo / 0.99999
+			55 / 60 / log / 0.00001
+			55 / 60 / lin / 0.0005
+			170/ 120 / geo / 0.99997 
+			170/ 120 / log / 0.00003 
+			170/ 120 / lin / 0.002
+			358/ 180 / geo / 0.99994 
+			358/ 180 / log / 0.0001 
+			358/ 180 / lin / 0.000666 
+
+		*/
+		std::fstream czasy;
+
 		read_data_from_file("ftv55.atsp");
-		run_limit = 20;
+		run_limit = 60;
 
-		chosen_definition = 0;
+		for (int m = 0; m < 3; m++)
+		{
+			chosen_definition = m;
 
+			for (int i = 0; i < 10; i++)
+			{
+				taboo_search();
+				czasy.open(std::to_string(m) + "ftv55TSPczasy.txt", std::fstream::app | std::fstream::out);
+				for (int j = 0; j < change_times.size(); j++)
+				{
+					czasy << change_times[j] << " " << change_vals[j] << ", ";
+				}
+				czasy << "\n";
+				czasy.close();
+				change_times.clear();
+				change_vals.clear();
+			}
+		}
+
+		chosen_cooling_schedule = 0;
+		cooling_coefficient = 0.99999;
 		for (int i = 0; i < 10; i++)
 		{
-			std::cout << i << " ";
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("GEOftv55SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p)<<" "<<min_v<<"\n";
 
-		chosen_definition = 1;
-
+		chosen_cooling_schedule = 1;
+		cooling_coefficient = 0.00001;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LOGftv55SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
-		chosen_definition = 2;
-
+		chosen_cooling_schedule = 2;
+		cooling_coefficient = 0.0005;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LINftv55SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
 		read_data_from_file("ftv170.atsp");
-		run_limit = 20;
+		run_limit = 120;
 
-		chosen_definition = 0;
+		for (int m = 0; m < 3; m++)
+		{
+			chosen_definition = m;
 
+			for (int i = 0; i < 10; i++)
+			{
+				taboo_search();
+				czasy.open(std::to_string(m) + "ftv170TSPczasy.txt", std::fstream::app | std::fstream::out);
+				for (int j = 0; j < change_times.size(); j++)
+				{
+					czasy << change_times[j] << " " << change_vals[j] << ", ";
+				}
+				czasy << "\n";
+				czasy.close();
+				change_times.clear();
+				change_vals.clear();
+			}
+		}
+
+		chosen_cooling_schedule = 0;
+		cooling_coefficient = 0.99997;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("GEOftv170SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
-		chosen_definition = 1;
-
+		chosen_cooling_schedule = 1;
+		cooling_coefficient = 0.00003;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LOGftv170SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
-		chosen_definition = 2;
-
+		chosen_cooling_schedule = 2;
+		cooling_coefficient = 0.002;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LINftv170SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
+
 		read_data_from_file("rbg358.atsp");
-		run_limit = 20;
+		run_limit = 180;
 
-		chosen_definition = 0;
+		for (int m = 0; m < 3; m++)
+		{
+			chosen_definition = m;
 
+			for (int i = 0; i < 10; i++)
+			{
+				taboo_search();
+				czasy.open(std::to_string(m) + "rbg358TSPczasy.txt", std::fstream::app | std::fstream::out);
+				for (int j = 0; j < change_times.size(); j++)
+				{
+					czasy << change_times[j] << " " << change_vals[j] << ", ";
+				}
+				czasy << "\n";
+				czasy.close();
+				change_times.clear();
+				change_vals.clear();
+			}
+		}
+
+		chosen_cooling_schedule = 0;
+		cooling_coefficient = 0.99994;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("GEOrbg358SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
-		chosen_definition = 1;
-
+		chosen_cooling_schedule = 1;
+		cooling_coefficient = 0.0001;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LOGrbg358SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
 
-		chosen_definition = 2;
-
+		chosen_cooling_schedule = 2;
+		cooling_coefficient = 0.000666;
 		for (int i = 0; i < 10; i++)
 		{
-			sol = taboo_search();
-			if (min_l > path_len(sol))
+			simulated_annealing();
+			czasy.open("LINrbg358SAczasy.txt", std::fstream::app | std::fstream::out);
+			for (int j = 0; j < change_times.size(); j++)
 			{
-				min_l = path_len(sol);
-				copy_arr(sol, min_p);
-				min_v = value.count();
+				czasy << change_times[j] << " " << change_vals[j] << ", ";
 			}
-			delete sol;
+			czasy << "\n";
+			czasy.close();
+			change_times.clear();
+			change_vals.clear();
 		}
-		save_path_to_file(min_p);
-		std::cout << path_len(min_p) << " " << min_v << "\n";
+
+
 
 	}
 
@@ -1037,7 +1118,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	a.run();
-	//a.debug();
+	//a.run();
+	a.debug();
 	return 0;
 }

@@ -15,7 +15,7 @@ class App {
 
 	int save_counter = 0;
 	//algorith-specific data storage
-	int run_limit = 5;				//in seconds
+	int run_limit = 20;				//in seconds
 
 	//SA
 	std::string cooling_schedules[3] = { "Geometric", "Logarithmic", "Linear" };
@@ -611,6 +611,7 @@ class App {
 			{
 				for (int i = 0; i < 10; i++)
 					random_swap(current_solution);
+				it_counter -= 1000;
 				continue;
 			}
 
@@ -624,18 +625,9 @@ class App {
 			{
 				for (int j = 0; j < size; j++)
 				{
-					if (i == j)
+					if (i == j || taboo_list[i][j] != 0)
 					{
 						continue;
-					}
-
-
-					if (taboo_list[i][j] != 0)
-					{
-						if (generate_random_double() > 1.0 / taboo_list[i][j])
-						{
-							continue;
-						}
 					}
 
 					copy_arr(current_solution, current_neighbour);

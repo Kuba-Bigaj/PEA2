@@ -562,10 +562,10 @@ class App {
 				should_stop = true;
 			old_sol_len = l1;
 		}
-		//std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
-		//save_path_to_file(s3);
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal temperature:" << temp << "\ne^(-1/temp): " << exp(-1 / temp) << "\nFinal path length: " << l3 << "\nFinal path:\n" << str_path(s3) << "\n";
+		save_path_to_file(s3);
 
-		std::cout << "Time: "<<elapsed.count()<<"s\nFinal path length: " << l3 << "\n\n";
+		//std::cout << "Time: "<<elapsed.count()<<"s\nFinal path length: " << l3 << "\n\n";
 		delete s1;
 		delete s2;
 		return s3;
@@ -682,10 +682,10 @@ class App {
 
 		} while (elapsed.count() < run_limit);
 
-		//std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
+		std::cout << "Time elapsed: " << elapsed.count() << "s\nFinal path length: " << global_best_cost << "\nFinal path:\n" << str_path(global_best_solution) << "\n";
 
-		//save_path_to_file(global_best_solution);
-		std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\n\n";
+		save_path_to_file(global_best_solution);
+		//std::cout << "Time elapsed: " << elapsed.count() << "\nFinal path length: " << global_best_cost << "\n\n";
 		delete near_best_solution;
 		delete current_solution;
 		delete current_neighbour;
@@ -1118,7 +1118,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	//a.run();
-	a.debug();
+	a.run();
+	//a.debug();
 	return 0;
 }
